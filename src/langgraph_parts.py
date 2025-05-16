@@ -77,7 +77,7 @@ def beckn_connection_search() -> dict:
 @tool
 def beckn_solar_retail_search() -> dict:
     """
-    Triggers the Search API for Beckn Solar-Retail to find solar product and service offerings.
+    Triggers the Search API for Beckn Solar-Retail and Battery-Retail to find solar and battery product and service offerings.
     Requires provider_id, item_id.
     """
     url = f"{BECKN_BASE_URL}/search"
@@ -113,7 +113,7 @@ def beckn_solar_retail_search() -> dict:
 @tool
 def beckn_solar_retail_select(provider_id: str, item_id: str) -> dict:
     """
-    Triggers the Select API for Beckn Solar-Retail to select a specific solar offering.
+    Triggers the Select API for Beckn Solar-Retail and Battery-Retail to select a specific solar and battery offering.
     Requires provider_id, item_id.
     """
     url = f"{BECKN_BASE_URL}/select"
@@ -411,17 +411,17 @@ def world_engine_create_meter(code: str, type: str, city: str, state: str, latit
         return {"error": f"API call failed: {e}"}
 
 @tool
-def world_engine_create_energy_resource(name: str, type: str, meter: Optional[int] = None) -> dict:
+def world_engine_create_energy_resource(name: str, meter: Optional[int] = None) -> dict:
     """
     Creates a new energy resource (e.g., Household) in the World Engine.
-    Requires name and type (e.g., "CONSUMER"). Optional: meter (Meter ID).
+    Requires name and optional: meter (Meter ID).
     """
     url = f"{WORLD_ENGINE_BASE_URL}/energy-resources"
     headers = { "Content-Type": "application/json" }
     payload = {
         "data": {
             "name": name,
-            "type": type,
+            "type": 'CUSTOMER',
             "meter": meter
         }
     }
@@ -550,15 +550,26 @@ def agent(state: AgentState) -> AgentState:
     chat_history = state['chat_history'][:] # Use a copy
 
     # Construct a dynamic system message for the LLM
+    # system_prompt_parts = [
+    #     "You are an AI assistant specialized in helping households adopt rooftop solar and join grid flexibility programs.",
+    #     "Your goal is to guide the user through the process seamlessly, handle API interactions, and provide clear updates.",
+    #     "Always provide transparent information and progress updates.",
+    #     "Based on the current stage of the process, the conversation history, and any recent tool outputs, decide on the best next action:",
+    #     "1. Generate a friendly, conversational response to the user (e.g., asking for info, confirming a step, presenting options, explaining an error, providing status).",
+    #     "2. Determine if a tool needs to be called to move the process forward. If so, formulate the correct tool call with accurate parameters based on the state and history.",
+    #     "3. If the goal is achieved or the user indicates they want to stop, signal the end of the process.",
+    #     f"The current stage is: {state['current_stage']}.",
+    # ]
     system_prompt_parts = [
-        "You are an AI assistant specialized in helping households adopt rooftop solar and join grid flexibility programs.",
-        "Your goal is to guide the user through the process seamlessly, handle API interactions, and provide clear updates.",
-        "Always provide transparent information and progress updates.",
-        "Based on the current stage of the process, the conversation history, and any recent tool outputs, decide on the best next action:",
-        "1. Generate a friendly, conversational response to the user (e.g., asking for info, confirming a step, presenting options, explaining an error, providing status).",
-        "2. Determine if a tool needs to be called to move the process forward. If so, formulate the correct tool call with accurate parameters based on the state and history.",
-        "3. If the goal is achieved or the user indicates they want to stop, signal the end of the process.",
-        f"The current stage is: {state['current_stage']}.",
+        "You are Inergy, a friendly AI buddy here to help folks with rooftop solar and grid flexibility programs.",
+        "Your main job is to make this whole process super easy and clear for the user. Keep your answers sweet, and friendly!",
+        "Always be upfront and let the user know what's happening.",
+        "Okay, Inergy, look at where we are in the conversation (the current stage), what we've talked about (chat history), and any recent tool results. Then, figure out the best next step:",
+        "1. Chat with the user: Keep it friendly and to the point. This could be asking for info, confirming something, showing options, explaining a hiccup, or giving a quick status update.",
+        "2. Use a tool if needed: If you need to use one of your tools to move things along, make sure you set it up right with all the info from our chat and current state.",
+        "3. Wrap it up: If everything's done, or if the user wants to stop, just say goodbye nicely.",
+        f"We're currently at this stage: {state['current_stage']}.",
+        "Remember to keep your responses concise and use a casual, helpful tone!"
     ]
 
     if state.get('error_message'):
@@ -591,9 +602,9 @@ def agent(state: AgentState) -> AgentState:
         system_prompt_parts.append("Start by introducing yourself and offering help with solar adoption and grid flexibility.")
     elif state['current_stage'] == 'gather_info':
         system_prompt_parts.append("Ask the user for their location (city, state, pincode) and average monthly electricity bill or consumption.")
-        system_prompt_parts.append("If you detect location and consumption info in the user's input, update the user_info in the state and indicate readiness to search for solar.")
+        system_prompt_parts.append("If you detect location and consumption info in the user's input, update the user_info in the state and indicate readiness to search for solar. Give them visibility on thier high costs on annual level")
     elif state['current_stage'] == 'search_solar':
-        system_prompt_parts.append("Call the `beckn_solar_retail_search` tool to find solar options. Use the Beckn context variables.")
+        system_prompt_parts.append("Call the `beckn_solar_retail_search` tool to find solar options. Show all options in a short user-friendly list.")
     elif state['current_stage'] == 'present_options':
          system_prompt_parts.append("Present the solar options found to the user clearly, mentioning their names and prices if available. Ask the user to select one by ID or number.")
          system_prompt_parts.append(f"Here are the options found: {json.dumps(state.get('solar_options'))}") # Pass full options for formatting
@@ -1079,11 +1090,7 @@ def update_state(state: AgentState) -> AgentState:
 
 
     elif current_stage == 'error':
-        # Error occurred, decide next step (e.g., return to welcome)
-        # Agent will generate the error message.
-        # After the agent provides the error message, the next user input
-        # will trigger handle_user_input, restarting the flow to 'welcome' or 'gather_info'.
-        # We don't need to explicitly change the stage here based on message type.
+       
         pass # Stay in error stage until new user input triggers handle_user_input
 
 

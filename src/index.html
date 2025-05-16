@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Inergy Chat</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+    <div class="phone-wrapper">
+        <div class="chat-container">
+            <div class="chat-header">
+                <div class="chat-header-avatar" id="botHeaderAvatar">I</div> <div class="chat-header-info">
+                    <div class="chat-header-name">Inergy</div>
+                    <div class="chat-header-status">Online</div>
+                </div>
+                <div class="status-bar-phone-top">
+                    <span id="phoneTime" class="phone-time">1:41 PM</span>
+                    <div class="phone-icons-right">
+                        <span class="phone-icon"><i class="fa fa-signal" aria-hidden="true"></i></span>
+                        <span class="phone-icon"><i class="fa fa-wifi" aria-hidden="true"></i></span>
+                        <span class="phone-icon"><i class="fa fa-battery-half" aria-hidden="true"></i></span>
+                        <span class="phone-icon"><i class="fa fa-location-arrow" aria-hidden="true"></i></span>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                </div>
+            <div class="chat-input-area">
+                <input type="text" id="messageInput" placeholder="Message Inergy...">
+                <button id="sendButton">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                        <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
