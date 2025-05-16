@@ -15,7 +15,7 @@ from langgraph.graph import StateGraph, END
 from dotenv import load_dotenv # Import load_dotenv
 
 # --- Load environment variables from .env file ---
-load_dotenv()
+
 
 from google.cloud import aiplatform
 aiplatform.init(project="e-dragon-459817-h0")
@@ -28,446 +28,35 @@ BECKN_BAP_ID = os.getenv("BECKN_BAP_ID")
 BECKN_BAP_URI = os.getenv("BECKN_BAP_URI")
 BECKN_BPP_ID = os.getenv("BECKN_BPP_ID")
 BECKN_BPP_URI = os.getenv("BECKN_BPP_URI")
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME")
+print (gcp_project, BECKN_BAP_ID)
 bap_id = BECKN_BAP_ID
 bap_uri = BECKN_BAP_URI
 bpp_id = BECKN_BPP_ID
 bpp_uri = BECKN_BPP_URI
+
+from source.Agents.agent_state import AgentState
+from source.model_tools import (
+    beckn_connection_search,
+    beckn_solar_retail_search,
+    beckn_solar_retail_select,
+    beckn_solar_retail_init,
+    beckn_solar_retail_confirm,
+    beckn_solar_retail_status,
+    beckn_subsidy_search,
+    beckn_subsidy_confirm,
+    world_engine_get_utilities_data,
+    world_engine_create_meter,
+    world_engine_create_energy_resource,
+    world_engine_create_der,
+    world_engine_toggle_der_switching,
+    create_beckn_context
+)
+
 # Check if essential variables are loaded
 if not all([BECKN_BASE_URL, WORLD_ENGINE_BASE_URL, BECKN_BAP_ID, BECKN_BAP_URI, BECKN_BPP_ID, BECKN_BPP_URI]):
     raise EnvironmentError("Missing one or more required environment variables. Ensure .env file exists and contains all necessary variables.")
 
-
-# --- Define API Functions as LangChain Tools ---
-###====================================###
-@tool
-def beckn_connection_search() -> dict:
-    """
-    Triggers the Search API for Beckn Connection to find available services.
-    Requires provider_id, item_id.
-    """
-    url = f"{BECKN_BASE_URL}/search"
-    headers = { "Content-Type": "application/json" }
-    transaction_id = str(uuid.uuid4())
-    message_id = str(uuid.uuid4())
-    timestamp = datetime.datetime.now().isoformat()
-
-    payload = {
-        "context": {
-            "domain": "deg:service",
-            "action": "search",
-            "location": { "country": { "code": "USA" } }, # Assuming USA for now, could be parameterized
-            "version": "1.1.0",
-            "bap_id": bap_id,
-            "bap_uri": bap_uri,
-            "bpp_id": bpp_id,
-            "bpp_uri": bpp_uri,
-            "transaction_id": transaction_id,
-            "message_id": message_id,
-            "timestamp": timestamp
-        },
-        "message": { "intent": { "item": { "descriptor": { "name": "Connection" } } } }
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-@tool
-def beckn_solar_retail_search() -> dict:
-    """
-    Triggers the Search API for Beckn Solar-Retail and Battery-Retail to find solar and battery product and service offerings.
-    Requires provider_id, item_id.
-    """
-    url = f"{BECKN_BASE_URL}/search"
-    headers = { "Content-Type": "application/json" }
-    transaction_id = str(uuid.uuid4())
-    message_id = str(uuid.uuid4())
-    timestamp = datetime.datetime.now().isoformat()
-
-    payload = {
-        "context": {
-            "domain": "deg:retail",
-            "action": "search",
-            "location": { "country": { "code": "USA" }, "city": { "code": "NANP:628" } }, # Assuming specific city for now
-            "version": "1.1.0",
-            "bap_id": bap_id,
-            "bap_uri": bap_uri,
-            "bpp_id": bpp_id,
-            "bpp_uri": bpp_uri,
-            "transaction_id": transaction_id,
-            "message_id": message_id,
-            "timestamp": timestamp
-        },
-        "message": { "intent": { "item": { "descriptor": { "name": "solar" } } } }
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-
-@tool
-def beckn_solar_retail_select(provider_id: str, item_id: str) -> dict:
-    """
-    Triggers the Select API for Beckn Solar-Retail and Battery-Retail to select a specific solar and battery offering.
-    Requires provider_id, item_id.
-    """
-    url = f"{BECKN_BASE_URL}/select"
-    headers = { "Content-Type": "application/json" }
-    transaction_id = str(uuid.uuid4())
-    message_id = str(uuid.uuid4())
-    timestamp = datetime.datetime.now().isoformat()
-
-    payload = {
-      "context": {
-        "domain": "deg:retail",
-        "action": "select",
-        "location": { "country": { "code": "USA" }, "city": { "code": "NANP:628" } },
-        "version": "1.1.0",
-        "bap_id": bap_id,
-        "bap_uri": bap_uri,
-        "bpp_id": bpp_id,
-        "bpp_uri": bpp_uri,
-        "transaction_id": transaction_id,
-        "message_id": message_id,
-        "timestamp": timestamp
-      },
-      "message": {
-       "order": {
-                "provider": { "id": provider_id },
-                "items": [ { "id": item_id } ]
-            }
-        }
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-@tool
-def beckn_solar_retail_init(provider_id: str, item_id: str) -> dict:
-    """
-    Triggers the Init API for Beckn Solar-Retail to initialize the order/process.
-    Requires provider_id, item_id.
-    """
-    url = f"{BECKN_BASE_URL}/init"
-    headers = { "Content-Type": "application/json" }
-    transaction_id = str(uuid.uuid4())
-    message_id = str(uuid.uuid4())
-    timestamp = datetime.datetime.now().isoformat()
-
-    payload = {
-      "context": {
-        "domain": "deg:retail",
-        "action": "init",
-        "location": { "country": { "code": "USA" }, "city": { "code": "NANP:628" } },
-        "version": "1.1.0",
-        "bap_id": bap_id,
-        "bap_uri": bap_uri,
-        "bpp_id": bpp_id,
-        "bpp_uri": bpp_uri,
-        "transaction_id": transaction_id,
-        "message_id": message_id,
-        "timestamp": timestamp
-      },
-      "message": {
-       "order": {
-                "provider": { "id": provider_id },
-                "items": [ { "id": item_id } ]
-            }
-        }
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-@tool
-def beckn_solar_retail_confirm(provider_id: str, item_id: str, fulfillment_id: str, customer_name: str, customer_phone: str, customer_email: str) -> dict:
-    """
-    Triggers the Confirm API for Beckn Solar-Retail to confirm the order/process.
-    Requires provider_id, item_id, fulfillment_id, customer_name, customer_phone, and customer_email.
-    """
-    url = f"{BECKN_BASE_URL}/confirm"
-    headers = { "Content-Type": "application/json" }
-    transaction_id = str(uuid.uuid4())
-    message_id = str(uuid.uuid4())
-    timestamp = datetime.datetime.now().isoformat()
-
-    payload = {
-      "context": {
-        "domain": "deg:retail",
-        "action": "confirm",
-        "location": { "country": { "code": "USA" }, "city": { "code": "NANP:628" } },
-        "version": "1.1.0",
-        "bap_id": bap_id,
-        "bap_uri": bap_uri,
-        "bpp_id": bpp_id,
-        "bpp_uri": bpp_uri,
-        "transaction_id": transaction_id,
-        "message_id": message_id,
-        "timestamp": timestamp
-      },
-      "message": {
-       "order": {
-                "provider": { "id": provider_id },
-                "items": [ { "id": item_id } ],
-                  "fulfillments": [
-                {
-                  "id": fulfillment_id,
-                  "customer": {
-                    "person": { "name": customer_name },
-                    "contact": { "phone": customer_phone, "email": customer_email }
-                  }
-                }
-              ]
-            }
-        }
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-@tool
-def beckn_solar_retail_status(order_id: str) -> dict:
-    """
-    Triggers the Status API for Beckn Solar-Retail to get the status of an order.
-    Requires order_id.
-    """
-    url = f"{BECKN_BASE_URL}/status"
-    headers = { "Content-Type": "application/json" }
-    transaction_id = str(uuid.uuid4())
-    message_id = str(uuid.uuid4())
-    timestamp = datetime.datetime.now().isoformat()
-
-    payload = {
-      "context": {
-        "domain": "deg:retail",
-        "action": "status",
-        "location": { "country": { "code": "USA" }, "city": { "code": "NANP:628" } },
-        "version": "1.1.0",
-        "bap_id": bap_id,
-        "bap_uri": bap_uri,
-        "bpp_id": bpp_id,
-        "bpp_uri": bpp_uri,
-        "transaction_id": transaction_id,
-        "message_id": message_id,
-        "timestamp": timestamp
-      },
-      "message": { "order_id": order_id }
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-@tool
-def beckn_subsidy_search() -> dict:
-    """
-    Triggers the Search API for Beckn Subsidy to find available incentives.
-    Requires no parameters.
-    """
-    url = f"{BECKN_BASE_URL}/search"
-    headers = { "Content-Type": "application/json" }
-    transaction_id = str(uuid.uuid4())
-    message_id = str(uuid.uuid4())
-    timestamp = datetime.datetime.now().isoformat()
-
-    payload = {
-        "context": {
-            "domain": "deg:schemes",
-            "action": "search",
-            "location": { "country": { "code": "USA" }, "city": { "code": "NANP:628" } }, # Assuming specific city for now
-            "version": "1.1.0",
-            "bap_id": bap_id,
-            "bap_uri": bap_uri,
-            "bpp_id": bpp_id,
-            "bpp_uri": bpp_uri,
-            "transaction_id": transaction_id,
-            "message_id": message_id, # Note: message_id was missing in original JSON for this search
-            "timestamp": timestamp
-        },
-        "message": { "intent": { "item": { "descriptor": { "name": "incentive" } } } }
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-
-@tool
-def beckn_subsidy_confirm(provider_id: str, item_id: str, fulfillment_id: str, customer_name: str, customer_phone: str, customer_email: str) -> dict:
-    """
-    Triggers the Confirm API for Beckn Subsidy to apply for an incentive.
-    Requires provider_id, item_id, fulfillment_id, customer_name, customer_phone, and customer_email.
-    """
-    url = f"{BECKN_BASE_URL}/confirm"
-    headers = { "Content-Type": "application/json" }
-    transaction_id = str(uuid.uuid4())
-    message_id = str(uuid.uuid4())
-    timestamp = datetime.datetime.now().isoformat()
-
-    payload = {
-      "context": {
-        "domain": "deg:schemes",
-        "action": "confirm",
-        "location": { "country": { "code": "USA" }, "city": { "code": "NANP:628" } },
-        "version": "1.1.0",
-        "bap_id": bap_id,
-        "bap_uri": bap_uri,
-        "bpp_id": bpp_id,
-        "bpp_uri": bpp_uri,
-        "transaction_id": transaction_id,
-        "message_id": message_id,
-        "timestamp": timestamp
-      },
-      "message": {
-       "order": {
-                "provider": { "id": provider_id },
-                "items": [ { "id": item_id } ],
-                 "fulfillments": [
-                {
-                  "id": fulfillment_id,
-                  "customer": {
-                    "person": { "name": customer_name },
-                    "contact": { "phone": customer_phone, "email": customer_email }
-                  }
-                }
-              ]
-            }
-        }
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-# Note: Beckn DFP APIs are similar to Subsidy APIs in the provided collection,
-# so we can potentially reuse or adapt the subsidy functions if DFP uses the same structure.
-# For now, let's focus on the core solar adoption and a simple DFP enrollment via World Engine.
-
-
-# World Engine Sandbox API Functions
-@tool
-def world_engine_get_utilities_data() -> dict:
-    """
-    Retrieves detailed data about utilities, substations, transformers, and meters from the World Engine.
-    """
-    url = f"{WORLD_ENGINE_BASE_URL}/utility/detailed"
-    headers = { "Content-Type": "application/json" }
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-@tool
-def world_engine_create_meter(code: str, type: str, city: str, state: str, latitude: float, longitude: float, pincode: str, parent: Optional[int] = None, energyResource: Optional[int] = None, consumptionLoadFactor: float = 1.0, productionLoadFactor: float = 0.0) -> dict:
-    """
-    Creates a new meter in the World Engine.
-    Requires code, type, city, state, latitude, longitude, pincode.
-    Optional: parent (Transformer ID), energyResource (Energy Resource ID), consumptionLoadFactor, productionLoadFactor.
-    """
-    url = f"{WORLD_ENGINE_BASE_URL}/meters"
-    headers = { "Content-Type": "application/json" }
-    payload = {
-        "data": {
-            "code": code,
-            "parent": parent,
-            "energyResource": energyResource,
-            "consumptionLoadFactor": consumptionLoadFactor,
-            "productionLoadFactor": productionLoadFactor,
-            "type": type,
-            "city": city,
-            "state": state,
-            "latitude": latitude,
-            "longitude": longitude,
-            "pincode": pincode
-        }
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-@tool
-def world_engine_create_energy_resource(name: str, meter: Optional[int] = None) -> dict:
-    """
-    Creates a new energy resource (e.g., Household) in the World Engine.
-    Requires name and optional: meter (Meter ID).
-    """
-    url = f"{WORLD_ENGINE_BASE_URL}/energy-resources"
-    headers = { "Content-Type": "application/json" }
-    payload = {
-        "data": {
-            "name": name,
-            "type": 'CUSTOMER',
-            "meter": meter
-        }
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-@tool
-def world_engine_create_der(energy_resource_id: int, appliance_id: int, switched_on: bool = True) -> dict:
-    """
-    Creates a new Distributed Energy Resource (DER) associated with an energy resource (e.g., a solar panel or smart charger for a household).
-    Requires energy_resource_id and appliance_id. Optional: switched_on (default True).
-    """
-    url = f"{WORLD_ENGINE_BASE_URL}/der"
-    headers = { "Content-Type": "application/json" }
-    payload = {
-        "energy_resource": energy_resource_id,
-        "appliance": appliance_id,
-        "switched_on": switched_on
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-
-
-@tool
-def world_engine_toggle_der_switching(der_id: int) -> dict:
-    """
-    Toggles the switched_on status of a DER in the World Engine.
-    Requires der_id.
-    """
-    url = f"{WORLD_ENGINE_BASE_URL}/toggle-der/{der_id}"
-    headers = { "Content-Type": "application/json" }
-    try:
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API call failed: {e}"}
-###====================================###
 class AgentState(TypedDict):
     """
     Represents the state of the agentic solar adoption process.
@@ -491,17 +80,8 @@ class AgentState(TypedDict):
     # Added for LLM context generation:
     latest_tool_output_summary: Optional[str] # Summary description of the latest tool output
 
-def create_beckn_context():
-     return {
-        "bap_id": BECKN_BAP_ID,
-        "bap_uri": BECKN_BAP_URI,
-        "bpp_id": BECKN_BPP_ID,
-        "bpp_uri": BECKN_BPP_URI
-    }
-
-
 # Initialize the LLM and tools
-llm = ChatVertexAI(model="gemini-2.5-flash-preview-04-17", temperature=0) # Use the specified model
+llm = ChatVertexAI(model=LLM_MODEL_NAME, temperature=0) # Use the specified model
 tools = [
     beckn_connection_search,
     beckn_solar_retail_search,
@@ -717,21 +297,14 @@ def call_tool(state: AgentState) -> AgentState:
                            tool_args['item_id'] = first_subsidy.get('id')
                            print(f"Using first subsidy search result for confirm: Provider ID {tool_args.get('provider_id')}, Item ID {tool_args.get('item_id')}")
 
-
                  # Special handling for `world_engine_create_der`
                  # Ensure energy_resource_id is present from state
                  if tool_name == 'world_engine_create_der' and tool_args.get('energy_resource_id') is None and state.get('energy_resource_id'):
                       tool_args['energy_resource_id'] = state['energy_resource_id']
                       print(f"Added energy_resource_id to DER args: {state['energy_resource_id']}")
 
-                 # Check if all required arguments are now present (basic check based on tool signature)
-                 # This requires inspecting the function signature, which is complex.
-                 # For this demo, rely on the LLM generating correct calls or basic checks above.
-                 # A real system might use a tool spec validator.
-
                  # Invoke the actual tool function
                  output = tool_function.invoke(tool_args)
-
                  tool_outputs.append(ToolMessage(content=json.dumps(output), tool_call_id=tool_call_id))
 
                  # Generate a brief summary of the output for the agent

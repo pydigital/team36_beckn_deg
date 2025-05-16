@@ -12,7 +12,7 @@ from langchain_core.messages.tool import ToolMessage
 from langchain_core.tools import tool
 from langchain_google_vertexai import ChatVertexAI
 from langgraph.graph import StateGraph, END
-from dotenv import load_dotenv # Import load_dotenv
+
 
 BECKN_BASE_URL = os.getenv("BECKN_BASE_URL")
 WORLD_ENGINE_BASE_URL = os.getenv("WORLD_ENGINE_BASE_URL")
@@ -20,12 +20,20 @@ BECKN_BAP_ID = os.getenv("BECKN_BAP_ID")
 BECKN_BAP_URI = os.getenv("BECKN_BAP_URI")
 BECKN_BPP_ID = os.getenv("BECKN_BPP_ID")
 BECKN_BPP_URI = os.getenv("BECKN_BPP_URI")
+bap_id = BECKN_BAP_ID
+bap_uri = BECKN_BAP_URI
+bpp_id = BECKN_BPP_ID
+bpp_uri = BECKN_BPP_URI
+print ([BECKN_BASE_URL, WORLD_ENGINE_BASE_URL, BECKN_BAP_ID, BECKN_BAP_URI, BECKN_BPP_ID, BECKN_BPP_URI])
+
+# if not all([BECKN_BASE_URL, WORLD_ENGINE_BASE_URL, BECKN_BAP_ID, BECKN_BAP_URI, BECKN_BPP_ID, BECKN_BPP_URI]):
+#     raise EnvironmentError("Missing one or more required environment variables. Ensure .env file exists and contains all necessary variables.")
 
 @tool
-def beckn_connection_search(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: str) -> dict:
+def beckn_connection_search() -> dict:
     """
     Triggers the Search API for Beckn Connection to find available services.
-    Requires bap_id, bap_uri, bpp_id, bpp_uri.
+    Requires provider_id, item_id.
     """
     url = f"{BECKN_BASE_URL}/search"
     headers = { "Content-Type": "application/json" }
@@ -57,10 +65,10 @@ def beckn_connection_search(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: str
         return {"error": f"API call failed: {e}"}
 
 @tool
-def beckn_solar_retail_search(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: str) -> dict:
+def beckn_solar_retail_search() -> dict:
     """
-    Triggers the Search API for Beckn Solar-Retail to find solar product and service offerings.
-    Requires bap_id, bap_uri, bpp_id, bpp_uri.
+    Triggers the Search API for Beckn Solar-Retail and Battery-Retail to find solar and battery product and service offerings.
+    Requires provider_id, item_id.
     """
     url = f"{BECKN_BASE_URL}/search"
     headers = { "Content-Type": "application/json" }
@@ -93,10 +101,10 @@ def beckn_solar_retail_search(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: s
 
 
 @tool
-def beckn_solar_retail_select(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: str, provider_id: str, item_id: str) -> dict:
+def beckn_solar_retail_select(provider_id: str, item_id: str) -> dict:
     """
-    Triggers the Select API for Beckn Solar-Retail to select a specific solar offering.
-    Requires bap_id, bap_uri, bpp_id, bpp_uri, provider_id, and item_id.
+    Triggers the Select API for Beckn Solar-Retail and Battery-Retail to select a specific solar and battery offering.
+    Requires provider_id, item_id.
     """
     url = f"{BECKN_BASE_URL}/select"
     headers = { "Content-Type": "application/json" }
@@ -133,10 +141,10 @@ def beckn_solar_retail_select(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: s
         return {"error": f"API call failed: {e}"}
 
 @tool
-def beckn_solar_retail_init(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: str, provider_id: str, item_id: str) -> dict:
+def beckn_solar_retail_init(provider_id: str, item_id: str) -> dict:
     """
     Triggers the Init API for Beckn Solar-Retail to initialize the order/process.
-    Requires bap_id, bap_uri, bpp_id, bpp_uri, provider_id, and item_id.
+    Requires provider_id, item_id.
     """
     url = f"{BECKN_BASE_URL}/init"
     headers = { "Content-Type": "application/json" }
@@ -173,10 +181,10 @@ def beckn_solar_retail_init(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: str
         return {"error": f"API call failed: {e}"}
 
 @tool
-def beckn_solar_retail_confirm(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: str, provider_id: str, item_id: str, fulfillment_id: str, customer_name: str, customer_phone: str, customer_email: str) -> dict:
+def beckn_solar_retail_confirm(provider_id: str, item_id: str, fulfillment_id: str, customer_name: str, customer_phone: str, customer_email: str) -> dict:
     """
     Triggers the Confirm API for Beckn Solar-Retail to confirm the order/process.
-    Requires bap_id, bap_uri, bpp_id, bpp_uri, provider_id, item_id, fulfillment_id, customer_name, customer_phone, and customer_email.
+    Requires provider_id, item_id, fulfillment_id, customer_name, customer_phone, and customer_email.
     """
     url = f"{BECKN_BASE_URL}/confirm"
     headers = { "Content-Type": "application/json" }
@@ -222,10 +230,10 @@ def beckn_solar_retail_confirm(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: 
         return {"error": f"API call failed: {e}"}
 
 @tool
-def beckn_solar_retail_status(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: str, order_id: str) -> dict:
+def beckn_solar_retail_status(order_id: str) -> dict:
     """
     Triggers the Status API for Beckn Solar-Retail to get the status of an order.
-    Requires bap_id, bap_uri, bpp_id, bpp_uri, and order_id.
+    Requires order_id.
     """
     url = f"{BECKN_BASE_URL}/status"
     headers = { "Content-Type": "application/json" }
@@ -257,10 +265,10 @@ def beckn_solar_retail_status(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: s
         return {"error": f"API call failed: {e}"}
 
 @tool
-def beckn_subsidy_search(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: str) -> dict:
+def beckn_subsidy_search() -> dict:
     """
     Triggers the Search API for Beckn Subsidy to find available incentives.
-    Requires bap_id, bap_uri, bpp_id, bpp_uri.
+    Requires no parameters.
     """
     url = f"{BECKN_BASE_URL}/search"
     headers = { "Content-Type": "application/json" }
@@ -293,10 +301,10 @@ def beckn_subsidy_search(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: str) -
 
 
 @tool
-def beckn_subsidy_confirm(bap_id: str, bap_uri: str, bpp_id: str, bpp_uri: str, provider_id: str, item_id: str, fulfillment_id: str, customer_name: str, customer_phone: str, customer_email: str) -> dict:
+def beckn_subsidy_confirm(provider_id: str, item_id: str, fulfillment_id: str, customer_name: str, customer_phone: str, customer_email: str) -> dict:
     """
     Triggers the Confirm API for Beckn Subsidy to apply for an incentive.
-    Requires bap_id, bap_uri, bpp_id, bpp_uri, provider_id, item_id, fulfillment_id, customer_name, customer_phone, and customer_email.
+    Requires provider_id, item_id, fulfillment_id, customer_name, customer_phone, and customer_email.
     """
     url = f"{BECKN_BASE_URL}/confirm"
     headers = { "Content-Type": "application/json" }
@@ -393,17 +401,17 @@ def world_engine_create_meter(code: str, type: str, city: str, state: str, latit
         return {"error": f"API call failed: {e}"}
 
 @tool
-def world_engine_create_energy_resource(name: str, type: str, meter: Optional[int] = None) -> dict:
+def world_engine_create_energy_resource(name: str, meter: Optional[int] = None) -> dict:
     """
     Creates a new energy resource (e.g., Household) in the World Engine.
-    Requires name and type (e.g., "CONSUMER"). Optional: meter (Meter ID).
+    Requires name and optional: meter (Meter ID).
     """
     url = f"{WORLD_ENGINE_BASE_URL}/energy-resources"
     headers = { "Content-Type": "application/json" }
     payload = {
         "data": {
             "name": name,
-            "type": type,
+            "type": 'CUSTOMER',
             "meter": meter
         }
     }
@@ -434,7 +442,6 @@ def world_engine_create_der(energy_resource_id: int, appliance_id: int, switched
     except requests.exceptions.RequestException as e:
         return {"error": f"API call failed: {e}"}
 
-
 @tool
 def world_engine_toggle_der_switching(der_id: int) -> dict:
     """
@@ -449,3 +456,11 @@ def world_engine_toggle_der_switching(der_id: int) -> dict:
         return response.json()
     except requests.exceptions.RequestException as e:
         return {"error": f"API call failed: {e}"}
+    
+def create_beckn_context():
+     return {
+        "bap_id": BECKN_BAP_ID,
+        "bap_uri": BECKN_BAP_URI,
+        "bpp_id": BECKN_BPP_ID,
+        "bpp_uri": BECKN_BPP_URI
+    }
