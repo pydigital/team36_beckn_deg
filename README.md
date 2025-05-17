@@ -2,6 +2,9 @@
 
 This project demonstrates an AI-powered chat application designed to assist users with solar adoption. It features a JavaScript-based frontend that mimics popular messaging apps, a Python Flask backend, and a LangGraph-powered AI agent system for handling the core logic and API interactions.
 
+> Link to demo video - a conversational interface for end customer
+> https://drive.google.com/file/d/1Ua3IRckT_HB9g9ikijmkTVi5ZEb9fBq8/view?usp=sharing
+
 ## Project Structure (Assumed)
 
 ```
